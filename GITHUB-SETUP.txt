@@ -1,0 +1,26 @@
+ONE-TIME SETUP (about 10 minutes)
+
+A. Upload the project to GitHub
+ 1. Unzip photo-scanner-app.zip somewhere (e.g. Desktop).
+ 2. Open https://github.com/TroyParto/photo-scanner
+ 3. Click "uploading an existing file" (or Add file > Upload files).
+ 4. Open the unzipped folder, select EVERYTHING inside it (Ctrl+A) - including the
+    hidden ".github" folder - and drag it into the browser page.
+    (If ".github" doesn't show: in File Explorer click View > Show > Hidden items.)
+ 5. Wait for the upload, then click the green "Commit changes" button.
+
+B. Let GitHub publish releases
+ 1. In the repo click Settings > Actions > General.
+ 2. Scroll to "Workflow permissions", choose "Read and write permissions", Save.
+ 3. Click the "Actions" tab. A build called "Build and publish Windows installer"
+    should be running (about 5 minutes). If it failed on permissions, click it
+    and press "Re-run all jobs".
+ 4. When it's green, click "Releases" on the repo front page - you'll see
+    version 2.1.0 with "Photo Scanner Setup 2.1.0.exe". Download and install it.
+    (Windows may say "unknown publisher": More info > Run anyway.)
+
+C. From now on (every update)
+ I send you a small zip. Unzip it, then in the repo click Add file > Upload files,
+ drag the files in, Commit. Five minutes later the new version is released and
+ the app on your PC updates itself next time you open it (it installs when you
+ close the app).

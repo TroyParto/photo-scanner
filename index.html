@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; worker-src 'self' blob:; connect-src 'self' blob:">
+<title>Photo Scanner</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#f4f2ee;--surface:#fff;--border:rgba(0,0,0,.11);--text:#1b1b1b;--muted:#666;--faint:#9a9a9a;
+  --accent:#2563eb;--accent-bg:#eaf1ff;--ok:#15803d;--ok-bg:#e6f6ec;--warn:#b45309;--warn-bg:#fff3dd;--err:#b91c1c;--err-bg:#fde8e8;--radius:12px;
+}
+@media(prefers-color-scheme:dark){:root{
+  --bg:#18181a;--surface:#242427;--border:rgba(255,255,255,.12);--text:#f1f1f1;--muted:#a8a8a8;--faint:#6d6d6d;
+  --accent:#6aa0ff;--accent-bg:#1c2a45;--ok:#5fd68a;--ok-bg:#16301f;--warn:#f5b04c;--warn-bg:#3a2c12;--err:#ff8a8a;--err-bg:#3d1b1b;
+}}
+html,body{height:100%;font-family:'Segoe UI',-apple-system,BlinkMacSystemFont,sans-serif;font-size:14px;background:var(--bg);color:var(--text)}
+.app{max-width:980px;margin:0 auto;padding:22px 20px 40px;display:flex;flex-direction:column;gap:16px;min-height:100%}
+h1{font-size:22px;font-weight:650;letter-spacing:-.01em}
+.sub{color:var(--muted);margin-top:2px}
+#drop{border:2px dashed var(--border);background:var(--surface);border-radius:var(--radius);padding:34px 20px;text-align:center;cursor:pointer;transition:all .15s}
+#drop:hover,#drop.over{border-color:var(--accent);background:var(--accent-bg)}
+#drop .big{font-size:17px;font-weight:600;margin-bottom:4px}
+#drop .small{color:var(--muted)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:8px 14px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--text);font:inherit;cursor:pointer}
+.btn:hover{border-color:var(--accent)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn:disabled{opacity:.45;cursor:default}
+.bar{display:flex;flex-wrap:wrap;gap:12px;align-items:center;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:10px 14px}
+.bar .path{flex:1;min-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--muted)}
+.bar label{color:var(--muted)}
+select{font:inherit;padding:6px 8px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--text)}
+#progress{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px;display:none}
+#progress .row{display:flex;justify-content:space-between;gap:10px;margin-bottom:8px;flex-wrap:wrap}
+.track{height:10px;background:var(--bg);border-radius:6px;overflow:hidden}
+.fill{height:100%;width:0;background:var(--accent);transition:width .25s}
+#progress .actions{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}
+#list{display:flex;flex-direction:column;gap:10px}
+.item{display:flex;gap:14px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:10px;cursor:pointer;align-items:flex-start}
+.item:hover{border-color:var(--accent)}
+.pv{width:84px;height:84px;border-radius:8px;background:var(--bg);flex-shrink:0;object-fit:contain}
+.info{flex:1;min-width:0}
+.name{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.status{font-size:13px;margin-top:2px;color:var(--muted)}
+.status.ok{color:var(--ok)}.status.warn{color:var(--warn)}.status.err{color:var(--err)}
+.thumbs{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap}
+.thumbs img{height:46px;border-radius:5px;border:1px solid var(--border);background:var(--bg)}
+.spin{display:inline-block;width:12px;height:12px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:s .8s linear infinite;vertical-align:-2px;margin-right:6px}
+@keyframes s{to{transform:rotate(360deg)}}
+#modal{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center;padding:20px;z-index:50}
+#modal.show{display:flex}
+.card{background:var(--surface);border-radius:var(--radius);max-width:960px;width:100%;max-height:100%;overflow:auto;padding:18px}
+.card h2{font-size:16px;margin-bottom:4px}
+.card img.page{width:100%;border-radius:8px;margin-top:10px;background:var(--bg)}
+.card .note{margin-top:10px;padding:10px 12px;border-radius:8px;background:var(--warn-bg);color:var(--warn)}
+.card .thumbs img{height:120px}
+.card .close{float:right}
+.empty{color:var(--faint);text-align:center;padding:10px}
+</style>
+</head>
+<body>
+<div class="app">
+  <div>
+    <h1>Photo Scanner</h1>
+    <div class="sub">Drop in your scanned pages. Every photo on every page is found, straightened, cropped with no borders, and saved.</div>
+  </div>
+
+  <div id="drop">
+    <div class="big">Drop scanned pages here</div>
+    <div class="small">JPG or PNG files, as many as you like &nbsp;·&nbsp; or <b>click to choose files</b></div>
+    <input id="file" type="file" accept="image/jpeg,image/png,image/webp,image/bmp,.jpg,.jpeg,.png,.webp,.bmp" multiple hidden>
+  </div>
+
+  <div class="bar">
+    <label>Save photos to</label>
+    <div class="path" id="outPath">…</div>
+    <button class="btn" id="changeDir">Change folder</button>
+    <label for="quality">Quality</label>
+    <select id="quality">
+      <option value="0.92">High (smaller files)</option>
+      <option value="0.97" selected>Very high</option>
+      <option value="1">Maximum</option>
+    </select>
+  </div>
+
+  <div id="progress">
+    <div class="row"><div id="pText"></div><div id="pCount" style="color:var(--muted)"></div></div>
+    <div class="track"><div class="fill" id="pFill"></div></div>
+    <div class="actions">
+      <button class="btn primary" id="openDir">Open the folder with my photos</button>
+      <button class="btn" id="clear">Clear list</button>
+    </div>
+  </div>
+
+  <div id="list"></div>
+  <div class="empty" id="empty">Nothing yet. Drop some scans above to start.</div>
+</div>
+
+<div id="modal"><div class="card" id="card"></div></div>
+
+<script>
+(function () {
+  const $ = (s) => document.querySelector(s);
+  const api = window.electronAPI || null;
+  const state = { outDir: '', items: [], pending: [], busy: 0, nextId: 1 };
+  const workers = [];
+  const MAX_WORKERS = Math.max(1, Math.min(2, (navigator.hardwareConcurrency || 4) - 1));
+
+  function setupWorkers() {
+    for (let i = 0; i < MAX_WORKERS; i++) {
+      const w = new Worker('worker.js');
+      w.busy = false;
+      w.onmessage = (e) => onResult(w, e.data);
+      w.onerror = (e) => { const it = state.items.find(x => x.id === w.currentId); w.busy = false; state.busy--; if (it) fail(it, 'Could not read this file'); pump(); };
+      workers.push(w);
+    }
+  }
+
+  async function init() {
+    setupWorkers();
+    state.outDir = api ? await api.getOutDir() : '(browser test mode)';
+    $('#outPath').textContent = state.outDir;
+    $('#outPath').title = state.outDir;
+  }
+
+  /* ---------- adding files ---------- */
+  function addFiles(fileList) {
+    const files = Array.from(fileList).filter(f => /\.(jpe?g|png|webp|bmp)$/i.test(f.name) || /^image\/(jpeg|png|webp|bmp)/.test(f.type));
+    files.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
+    for (const file of files) {
+      const it = { id: state.nextId++, file, name: file.name, status: 'wait', photos: [], saved: [] };
+      state.items.push(it);
+      state.pending.push(it);
+      const el = document.createElement('div');
+      el.className = 'item'; el.id = 'it' + it.id;
+      el.innerHTML = '<img class="pv" alt=""><div class="info"><div class="name"></div><div class="status"></div><div class="thumbs"></div></div>';
+      el.querySelector('.name').textContent = file.name;
+      el.addEventListener('click', () => openModal(it));
+      $('#list').appendChild(el);
+      it.el = el;
+      render(it);
+    }
+    updateProgress();
+    pump();
+  }
+
+  function render(it) {
+    const s = it.el.querySelector('.status');
+    s.className = 'status';
+    if (it.status === 'wait') s.textContent = 'Waiting…';
+    else if (it.status === 'work') s.innerHTML = '<span class="spin"></span>Finding photos…';
+    else if (it.status === 'err') { s.classList.add('err'); s.textContent = it.error; }
+    else if (it.status === 'done') {
+      const n = it.photos.length;
+      if (!n) { s.classList.add('warn'); s.textContent = 'No photos found on this page. Click to take a look.'; }
+      else if (it.check) { s.classList.add('warn'); s.textContent = `${n} photo${n > 1 ? 's' : ''} saved. Worth a quick look: click to check the outlines.`; }
+      else { s.classList.add('ok'); s.textContent = `✓ ${n} photo${n > 1 ? 's' : ''} saved`; }
+    }
+    if (it.previewUrl) it.el.querySelector('.pv').src = it.previewUrl;
+    const t = it.el.querySelector('.thumbs');
+    if (it.status === 'done' && !t.children.length) it.photos.forEach(p => { const im = document.createElement('img'); im.src = p.thumbUrl; t.appendChild(im); });
+  }
+
+  /* ---------- queue ---------- */
+  function pump() {
+    for (const w of workers) {
+      if (w.busy || !state.pending.length) continue;
+      const it = state.pending.shift();
+      w.busy = true; state.busy++; w.currentId = it.id;
+      it.status = 'work'; render(it);
+      w.postMessage({ id: it.id, file: it.file, quality: parseFloat($('#quality').value) });
+    }
+    updateProgress();
+  }
+
+  function fail(it, msg) { it.status = 'err'; it.error = msg; render(it); updateProgress(); }
+
+  async function onResult(w, r) {
+    const it = state.items.find(x => x.id === r.id);
+    w.busy = false; state.busy--;
+    if (!it) { pump(); return; }
+    if (!r.ok) { fail(it, 'Could not read this file (' + r.error + ')'); pump(); return; }
+    const base = it.name.replace(/\.[^.]+$/, '');
+    const files = r.photos.map((p, i) => ({ name: `${base}_${String(i + 1).padStart(2, '0')}.jpg`, data: new Uint8Array(p.bytes) }));
+    try {
+      if (api && files.length) it.saved = await api.savePhotos({ dir: state.outDir, files });
+      else it.saved = files.map(f => f.name);
+      window.__savedForTest = (window.__savedForTest || []).concat(files.map(f => ({ name: f.name, size: f.data.length })));
+    } catch (e) { fail(it, 'Photos were found but could not be saved: ' + e.message); pump(); return; }
+    it.photos = r.photos.map(p => ({ width: p.width, height: p.height, flags: p.flags, thumbUrl: URL.createObjectURL(new Blob([p.thumb], { type: 'image/jpeg' })) }));
+    it.previewUrl = URL.createObjectURL(new Blob([r.preview], { type: 'image/jpeg' }));
+    it.check = r.photos.some(p => p.flags && p.flags.length);
+    it.status = 'done';
+    render(it); updateProgress(); pump();
+  }
+
+  function updateProgress() {
+    const total = state.items.length;
+    const done = state.items.filter(x => x.status === 'done' || x.status === 'err').length;
+    $('#empty').style.display = total ? 'none' : 'block';
+    $('#progress').style.display = total ? 'block' : 'none';
+    if (!total) return;
+    const photos = state.items.reduce((n, x) => n + x.photos.length, 0);
+    const check = state.items.filter(x => x.status === 'done' && (x.check || !x.photos.length)).length;
+    const running = done < total;
+    $('#pFill').style.width = Math.round(done / total * 100) + '%';
+    $('#pText').innerHTML = running ? '<span class="spin"></span>Working through your scans…' : `All done. ${photos} photos saved from ${total} page${total > 1 ? 's' : ''}.` + (check ? ` ${check} page${check > 1 ? 's' : ''} worth a quick look.` : '');
+    $('#pCount').textContent = `${done} of ${total} pages · ${photos} photos`;
+    window.__progressForTest = { total, done, photos, check, running };
+  }
+
+  /* ---------- details window ---------- */
+  function openModal(it) {
+    if (it.status !== 'done') return;
+    const card = $('#card');
+    const note = !it.photos.length ? 'No photos were found on this page.' :
+      it.check ? 'The program was less sure about one of these photos. Compare the coloured outlines with the picture; the saved files are in your folder.' : '';
+    card.innerHTML = `<button class="btn close">Close</button><h2></h2><div class="status ok">${it.photos.length} photo${it.photos.length === 1 ? '' : 's'} found and saved</div>` +
+      (note ? `<div class="note">${note}</div>` : '') + '<img class="page" alt=""><div class="thumbs"></div>';
+    card.querySelector('h2').textContent = it.name;
+    card.querySelector('img.page').src = it.previewUrl;
+    const t = card.querySelector('.thumbs');
+    it.photos.forEach(p => { const im = document.createElement('img'); im.src = p.thumbUrl; t.appendChild(im); });
+    card.querySelector('.close').onclick = () => $('#modal').classList.remove('show');
+    $('#modal').classList.add('show');
+  }
+  $('#modal').addEventListener('click', (e) => { if (e.target.id === 'modal') $('#modal').classList.remove('show'); });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') $('#modal').classList.remove('show'); });
+
+  /* ---------- controls ---------- */
+  const drop = $('#drop'), input = $('#file');
+  drop.addEventListener('click', () => input.click());
+  input.addEventListener('change', () => { addFiles(input.files); input.value = ''; });
+  ['dragenter', 'dragover'].forEach(ev => document.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.add('over'); }));
+  ['dragleave', 'drop'].forEach(ev => document.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.remove('over'); }));
+  document.addEventListener('drop', (e) => { if (e.dataTransfer && e.dataTransfer.files.length) addFiles(e.dataTransfer.files); });
+  $('#changeDir').addEventListener('click', async () => {
+    if (!api) return;
+    const d = await api.pickFolder();
+    if (d) { state.outDir = d; $('#outPath').textContent = d; $('#outPath').title = d; }
+  });
+  $('#openDir').addEventListener('click', () => { if (api) api.openFolder(state.outDir); });
+  $('#clear').addEventListener('click', () => {
+    if (state.busy) return;
+    state.items.forEach(it => { if (it.previewUrl) URL.revokeObjectURL(it.previewUrl); it.photos.forEach(p => URL.revokeObjectURL(p.thumbUrl)); });
+    state.items = []; state.pending = []; $('#list').innerHTML = ''; updateProgress();
+  });
+
+  init();
+  updateProgress();
+})();
+</script>
+</body>
+</html>

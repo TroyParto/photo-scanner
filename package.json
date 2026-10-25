@@ -1,0 +1,71 @@
+{
+  "name": "photo-scanner",
+  "version": "2.1.0",
+  "description": "Detect and crop individual photos from scanned files",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "build-win": "electron-builder --win --x64 --publish never",
+    "build-mac": "electron-builder --mac",
+    "release": "electron-builder --win --x64 --publish always"
+  },
+  "build": {
+    "appId": "com.photoscanner.app",
+    "productName": "Photo Scanner",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "index.html",
+      "engine.js",
+      "worker.js"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "icon.ico"
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "installerIcon": "icon.ico",
+      "deleteAppDataOnUninstall": true
+    },
+    "mac": {
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "universal"
+          ]
+        }
+      ],
+      "icon": "icon.icns",
+      "category": "public.app-category.photography"
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "TroyParto",
+        "repo": "photo-scanner",
+        "releaseType": "release"
+      }
+    ]
+  },
+  "devDependencies": {
+    "electron": "^28.0.0",
+    "electron-builder": "^24.0.0"
+  },
+  "author": "TroyParto",
+  "dependencies": {
+    "electron-updater": "^6.1.7"
+  }
+}
